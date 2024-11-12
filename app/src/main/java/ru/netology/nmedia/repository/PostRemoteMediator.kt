@@ -21,6 +21,12 @@ class PostRemoteMediator(
     private val postDao: PostDao,
     private val postRemoteKeyDao: PostRemoteKeyDao,
 ) : RemoteMediator<Int, PostEntity>() {
+
+    // Define the KeyType enum
+    enum class KeyType {
+        POST
+    }
+
     override suspend fun load(
         loadType: LoadType,
         state: PagingState<Int, PostEntity>
@@ -31,9 +37,7 @@ class PostRemoteMediator(
                     service.getLatest(state.config.initialLoadSize)
                 }
                 LoadType.APPEND -> {
-                    val id = postRemoteKeyDao.min() ?: return MediatorResult.Success(
-                        endOfPaginationReached = false
-                    )
+                    val id = postRemoteKeyDao.min() ?: return MediatorResult.Success(endOfPaginationReached = true)
                     service.getBefore(id, state.config.pageSize)
                 }
                 else -> return MediatorResult.Success(endOfPaginationReached = false)
@@ -51,9 +55,11 @@ class PostRemoteMediator(
                 when (loadType) {
                     LoadType.REFRESH -> {
                         postDao.insert(body.toEntity())
+                        postRemoteKeyDao.insert(PostRemoteKeyEntity(id = body.first().id, type = KeyType.POST))
                     }
                     LoadType.APPEND -> {
                         postDao.insert(body.toEntity())
+                        postRemoteKeyDao.insert(PostRemoteKeyEntity(id = body.first().id, type = KeyType.POST))
                     }
                     LoadType.PREPEND -> {
 
